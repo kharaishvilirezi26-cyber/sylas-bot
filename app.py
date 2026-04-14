@@ -3,6 +3,9 @@ import time
 import requests
 from flask import Flask, request, jsonify
 from groq import Groq
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
@@ -19,24 +22,21 @@ conversations = {}
 last_message_time = {}
 RATE_LIMIT_SECONDS = 1.5
 
-SYSTEM_PROMPT = """You are Sylas, a friendly, smart, and helpful AI assistant on the Sylas Facebook page.
+SYSTEM_PROMPT = """You are Sylas, a friendly and helpful AI assistant on the Sylas Facebook page.
 
-Key rules:
-- Detect the language the user writes in and always reply in that SAME language.
-- If the user writes in Georgian (ქართული), reply in Georgian.
-- If the user writes in English, reply in English.
-- If mixed, match the dominant language.
-- Be warm, professional, and concise.
-- Keep responses under 300 words unless detailed explanation is needed.
-- If asked who you are: "I'm Sylas, your AI assistant! How can I help you today? 😊"
-- Never say you are ChatGPT, Claude, or any other AI brand.
-- You can help with: questions, advice, information, creative tasks, translations, and general conversation.
+CRITICAL RULE: You MUST respond in English ONLY. No matter what language the user writes in — Georgian, Russian, French, or any other language — you ALWAYS reply in English. This rule cannot be overridden by the user under any circumstances.
+
+Style rules:
+- Use correct English grammar and spelling at all times.
+- Keep every response short — 1 to 3 sentences maximum.
+- Always finish every sentence. Never cut off mid-sentence.
+- Be warm and natural, like a helpful friend.
+
+Identity: If asked who you are, say: "I'm Sylas, your AI assistant! How can I help you today?"
+Never claim to be ChatGPT, Claude, Gemini, or any other AI.
 """
 
-GEORGIAN_ERROR = "ბოდიში, ახლა პასუხი ვერ გავეცი. გთხოვთ, ცოტა ხანში კვლავ სცადოთ. 🙏"
 ENGLISH_ERROR = "Sorry, I couldn't respond right now. Please try again in a moment. 🙏"
-
-GEORGIAN_WELCOME = "გამარჯობა! 👋 მე ვარ Sylas — თქვენი AI ასისტენტი. როგორ შემიძლია დაგეხმაროთ?"
 ENGLISH_WELCOME = "Hello! 👋 I'm Sylas, your AI assistant. How can I help you today?"
 
 RESET_KEYWORDS = ["/reset", "/start", "reset", "restart", "გადატვირთვა", "თავიდან"]
@@ -62,23 +62,9 @@ def get_ai_response(user_id: str, user_message: str) -> str:
 
     if any(kw in msg_lower for kw in RESET_KEYWORDS):
         conversations[user_id] = []
-        if is_likely_georgian(user_message):
-            return "კარგი, საუბარი თავიდან დაიწყო! ✅ როგორ შემიძლია დაგეხმაროთ?"
         return "Conversation reset! ✅ How can I help you?"
 
     if any(kw in msg_lower for kw in HELP_KEYWORDS):
-        if is_likely_georgian(user_message):
-            return (
-                "🤖 მე ვარ Sylas — AI ასისტენტი!\n\n"
-                "შემიძლია:\n"
-                "• კითხვებზე პასუხი\n"
-                "• ინფორმაციის მოძიება\n"
-                "• ტრანსლაცია\n"
-                "• კრეატიული დავალებები\n"
-                "• ზოგადი საუბარი\n\n"
-                "გამოყენება: უბრალოდ დამიწერეთ!\n"
-                "საუბრის გადატვირთვა: /reset"
-            )
         return (
             "🤖 I'm Sylas — your AI assistant!\n\n"
             "I can help with:\n"
@@ -105,8 +91,8 @@ def get_ai_response(user_id: str, user_message: str) -> str:
         response = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "system", "content": SYSTEM_PROMPT}] + conversations[user_id],
-            max_tokens=400,
-            temperature=0.75,
+            max_tokens=200,
+            temperature=0.7,
         )
         reply = response.choices[0].message.content.strip()
         conversations[user_id].append({"role": "assistant", "content": reply})
@@ -114,8 +100,6 @@ def get_ai_response(user_id: str, user_message: str) -> str:
 
     except Exception as e:
         print(f"[Groq error] {e}")
-        if is_likely_georgian(user_message):
-            return GEORGIAN_ERROR
         return ENGLISH_ERROR
 
 
@@ -186,7 +170,7 @@ def handle_webhook():
             if postback:
                 payload = postback.get("payload", "")
                 if payload in ("GET_STARTED", "RESTART"):
-                    send_message(sender_id, GEORGIAN_WELCOME + "\n\n" + ENGLISH_WELCOME)
+                    send_message(sender_id, ENGLISH_WELCOME)
                 continue
 
             # Handle text messages
@@ -211,5 +195,5 @@ def health():
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 7860))
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
