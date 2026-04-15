@@ -274,7 +274,7 @@ def post_to_facebook(message: str, image_bytes: bytes | None) -> dict:
 def run_auto_post() -> dict:
     """Called by scheduler 3x/day — or via /post-now endpoint."""
     print("\n" + "=" * 55)
-    print("[AutoPost] ▶ Scheduled post starting...")
+    print("[AutoPost] >> Scheduled post starting...")
 
     global PAGE_TOKEN
     PAGE_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN", PAGE_TOKEN)
@@ -288,9 +288,9 @@ def run_auto_post() -> dict:
         result      = post_to_facebook(message, image)
 
         if result.get("id") or result.get("post_id"):
-            print(f"[AutoPost] ✅ Success — {result}")
+            print(f"[AutoPost] SUCCESS -- {result}")
         else:
-            print(f"[AutoPost] ❌ Failed — {result}")
+            print(f"[AutoPost] FAILED -- {result}")
 
         return result
 
