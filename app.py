@@ -4,6 +4,9 @@ import requests
 from flask import Flask, request, jsonify
 from groq import Groq
 from dotenv import load_dotenv
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+import pytz
 
 load_dotenv()
 
@@ -199,10 +202,31 @@ def debug():
 
 @app.route("/test-send/<psid>", methods=["GET"])
 def test_send(psid):
-    """Test sending a message to a specific PSID."""
     send_text(psid, "Test message from Sylas bot! If you see this, the bot is working.")
     return jsonify({"sent_to": psid}), 200
 
+
+@app.route("/post-now", methods=["GET"])
+def post_now():
+    """Manually trigger an auto-post (for testing)."""
+    from auto_poster import run_auto_post
+    result = run_auto_post()
+    return jsonify(result), 200
+
+
+# ── Auto-Poster Scheduler ─────────────────────────────────────────
+def start_scheduler():
+    from auto_poster import run_auto_post
+    georgia = pytz.timezone("Asia/Tbilisi")
+    sched = BackgroundScheduler(timezone=georgia)
+    # Post at 12:00, 15:00, 18:00 Georgia time
+    sched.add_job(run_auto_post, CronTrigger(hour=12, minute=0, timezone=georgia))
+    sched.add_job(run_auto_post, CronTrigger(hour=15, minute=0, timezone=georgia))
+    sched.add_job(run_auto_post, CronTrigger(hour=18, minute=0, timezone=georgia))
+    sched.start()
+    print("[Scheduler] Auto-poster started: 12:00, 15:00, 18:00 Georgia time")
+
+start_scheduler()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
