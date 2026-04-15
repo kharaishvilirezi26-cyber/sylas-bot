@@ -308,6 +308,33 @@ def refresh_posts():
     return jsonify({"status": "ok", "posts_fetched": len(posts)}), 200
 
 
+@app.route("/debug", methods=["GET"])
+def debug():
+    """Debug endpoint - check token type and webhook subscription."""
+    token_prefix = PAGE_ACCESS_TOKEN[:20] + "..." if PAGE_ACCESS_TOKEN else "EMPTY"
+    # Check what /me returns for this token
+    try:
+        r = requests.get("https://graph.facebook.com/v19.0/me",
+                         params={"access_token": PAGE_ACCESS_TOKEN}, timeout=5)
+        me = r.json()
+    except Exception as e:
+        me = {"error": str(e)}
+    # Check webhook subscription
+    try:
+        r2 = requests.get(f"https://graph.facebook.com/v19.0/{PAGE_ID}/subscribed_apps",
+                          params={"access_token": PAGE_ACCESS_TOKEN}, timeout=5)
+        subs = r2.json()
+    except Exception as e:
+        subs = {"error": str(e)}
+    return jsonify({
+        "token_prefix": token_prefix,
+        "token_identity": me,
+        "is_page_token": me.get("id") == PAGE_ID,
+        "webhook_subscriptions": subs,
+        "cached_posts": len(_page_posts_cache)
+    }), 200
+
+
 if __name__ == "__main__":
     # Pre-load page posts on startup
     print("[Startup] Loading Sylas page posts...")
