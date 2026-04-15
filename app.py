@@ -294,7 +294,7 @@ def health():
     return jsonify({
         "status": "ok",
         "bot": "sylas-educational",
-        "version": "3.0",
+        "version": "3.1",
         "cached_posts": posts_count
     }), 200
 
