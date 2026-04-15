@@ -10,12 +10,51 @@ load_dotenv()
 
 app = Flask(__name__)
 
-PAGE_ACCESS_TOKEN = os.environ.get("PAGE_ACCESS_TOKEN")
 VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "sylas_bot_token")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PAGE_ID = "971519402721984"
 
 groq_client = Groq(api_key=GROQ_API_KEY)
+
+def resolve_page_token() -> str:
+    """
+    Accept either a User Access Token or a Page Access Token from env.
+    If it's a User token, auto-exchange it for the Sylas Page token.
+    Page tokens from long-lived user tokens never expire.
+    """
+    raw_token = os.environ.get("PAGE_ACCESS_TOKEN", "")
+    if not raw_token:
+        print("[Token] ERROR: PAGE_ACCESS_TOKEN not set")
+        return ""
+    try:
+        r = requests.get(
+            f"https://graph.facebook.com/v19.0/me",
+            params={"access_token": raw_token},
+            timeout=10
+        )
+        data = r.json()
+        # If the token belongs to the page itself, use it directly
+        if data.get("id") == PAGE_ID:
+            print(f"[Token] Page token confirmed for page {PAGE_ID}")
+            return raw_token
+        # Otherwise it's a User token — exchange for Page token
+        print(f"[Token] User token detected, fetching Page token...")
+        r2 = requests.get(
+            "https://graph.facebook.com/v19.0/me/accounts",
+            params={"access_token": raw_token},
+            timeout=10
+        )
+        for page in r2.json().get("data", []):
+            if page.get("id") == PAGE_ID:
+                page_token = page.get("access_token", "")
+                print(f"[Token] Page token obtained for '{page.get('name')}'")
+                return page_token
+        print("[Token] WARNING: Sylas page not found in user accounts")
+    except Exception as e:
+        print(f"[Token] Error resolving token: {e}")
+    return raw_token
+
+PAGE_ACCESS_TOKEN = resolve_page_token()
 
 # Conversation history per user
 conversations = {}
